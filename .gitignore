@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.env
+.env.local
+*.local
+
+# Prisma
+comparableiq-api/prisma/migrations/
+
+# Build artifacts
+comparableiq-api/dist/
+comparableiq-web/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Redis dump
+dump.rdb
