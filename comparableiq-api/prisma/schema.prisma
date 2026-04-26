@@ -1,0 +1,91 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis(version: "3.4")]
+}
+
+enum UserRole {
+  ADMIN
+  VERIFIED_VALUER
+  GOOGLE_USER
+}
+
+enum AuditAction {
+  SEARCH
+  VIEW_RESULT
+  LOGIN
+  LOGOUT
+  COMPARABLE_ADDED
+  COMPARABLE_EDITED
+  COMPARABLE_DELETED
+  USER_UPGRADED
+  USER_DEACTIVATED
+  MAP_ACCESS_TOGGLED
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  googleId            String    @unique @map("google_id")
+  email               String    @unique
+  displayName         String    @map("display_name")
+  avatarUrl           String?   @map("avatar_url")
+  role                UserRole  @default(GOOGLE_USER)
+  searchCountToday    Int       @default(0) @map("search_count_today")
+  searchCountResetAt  DateTime  @default(now()) @map("search_count_reset_at") @db.Timestamptz
+  hasMapAccess        Boolean   @default(false) @map("has_map_access")
+  isActive            Boolean   @default(true) @map("is_active")
+  lastSeenAt          DateTime? @map("last_seen_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  comparables Comparable[] @relation("AddedBy")
+  auditLogs   AuditLog[]
+
+  @@map("users")
+}
+
+model Comparable {
+  id           String    @id @default(uuid())
+  parcelNumber String    @map("parcel_number")
+  // location stored as PostGIS GEOGRAPHY(POINT, 4326) — managed via raw SQL
+  lat          Float
+  lng          Float
+  areaHa       Decimal   @map("area_ha") @db.Decimal(10, 4)
+  salePrice    Decimal?  @map("sale_price") @db.Decimal(15, 2)
+  saleDate     DateTime  @map("sale_date") @db.Date
+  locality     String
+  county       String
+  notes        String?   @db.Text
+  addedById    String?   @map("added_by_id")
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  addedBy User? @relation("AddedBy", fields: [addedById], references: [id])
+
+  @@index([parcelNumber])
+  @@index([county, locality])
+  @@index([saleDate])
+  @@map("comparables")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?     @map("user_id")
+  action      AuditAction
+  metadata    Json        @default("{}")
+  ipAddress   String      @map("ip_address") @db.VarChar(45)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
